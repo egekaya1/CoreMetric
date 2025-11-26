@@ -1,0 +1,10 @@
+{
+  "reportMissingTypeStubs": "none",
+  "reportUnknownMemberType": "none",
+  "reportUnknownParameterType": "none",
+  "reportMissingParameterType": "none",
+  "reportUnknownArgumentType": "none",
+  "reportUnknownVariableType": "none",
+  "reportAttributeAccessIssue": "none",
+  "reportOptionalMemberAccess": "none"
+}
