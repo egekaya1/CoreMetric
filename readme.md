@@ -1,4 +1,4 @@
-# CoreMetric: Native macOS Anomaly Detection
+# CoreMetric: Native macOS Anomaly Detection (WIP)
 
 ![Platform](https://img.shields.io/badge/Platform-macOS_14+-000000?logo=apple)
 ![Stack](https://img.shields.io/badge/Tech-SwiftUI_|_CoreML_|_PyTorch-orange)
