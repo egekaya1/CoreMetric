@@ -9,9 +9,22 @@ import SwiftUI
 
 @main
 struct MLMonitorApp: App {
+    // Connect the AppDelegate
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    
     var body: some Scene {
-        WindowGroup {
-            ContentView()
+        Settings {
+            // This ensures we can still have a Cmd+, Settings window later
+            Text("Settings go here")
         }
+    }
+}
+
+class AppDelegate: NSObject, NSApplicationDelegate {
+    var menuBarManager: MenuBarManager?
+    
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        // Initialize the Menu Bar Manager
+        menuBarManager = MenuBarManager()
     }
 }

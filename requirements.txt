@@ -1,0 +1,13 @@
+# Data Collection & Processing
+psutil==7.1.3
+pandas==2.2.3
+numpy==2.0.0
+scikit-learn==1.5.1
+
+# Machine Learning (Golden Set for Core ML compatibility)
+torch==2.4.1
+torchvision==0.19.1
+coremltools==8.0
+
+# Optional: Visualization for Notebooks
+matplotlib==3.9.0

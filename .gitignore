@@ -94,3 +94,7 @@ playground.xcworkspace
 # --- C/C++ (If you add C collectors later) ---
 *.o
 *.obj
+/app/CoreMetric
+MLMonitor/MLMonitor/SystemMonitor.mlpackage/Data/com.apple.CoreML/model.mlmodel
+MLMonitor/MLMonitor/SystemMonitor.mlpackage/Data/com.apple.CoreML/model.mlmodel
+/MLMonitor/MLMonitor/SystemMonitor.mlpackage
