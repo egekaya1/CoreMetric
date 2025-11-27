@@ -98,3 +98,6 @@ playground.xcworkspace
 MLMonitor/MLMonitor/SystemMonitor.mlpackage/Data/com.apple.CoreML/model.mlmodel
 MLMonitor/MLMonitor/SystemMonitor.mlpackage/Data/com.apple.CoreML/model.mlmodel
 /MLMonitor/MLMonitor/SystemMonitor.mlpackage
+MLMonitor/MLMonitor/SystemCollector.swift
+MLMonitor/MLMonitor/SystemMonitor.mlpackage/Data/com.apple.CoreML/model.mlmodel
+MLMonitor/MLMonitor/SystemMonitor.mlpackage/Data/com.apple.CoreML/weights/weight.bin
