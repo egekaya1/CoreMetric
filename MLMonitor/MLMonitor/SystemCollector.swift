@@ -15,23 +15,23 @@ class SystemCollector {
     private var prevDisk: (read: UInt64, write: UInt64)? = nil
     private var prevTime: TimeInterval = 0
     
-    // Feature 0-8 matches your Python definitions EXACTLY
+    // 11 features — order must match FEATURES list in train_coreml.py exactly
     func getTelemetry() -> [Float] {
         let now = Date().timeIntervalSince1970
         let timeDelta = Float(max(0.1, now - prevTime))
         prevTime = now
-        
-        let cpu = getCPUUsage()
-        let mem = getMemoryUsage()
+
+        let cpu  = getCPUUsage()
+        let mem  = getMemoryUsage()
+        let swap = getSwapUsage()
         let load = getLoadAvg()
-        
+
         // Network Rates
         let currentNet = getNetworkCounters()
         var netSentRate: Float = 0.0
         var netRecvRate: Float = 0.0
-        
+
         if let prev = prevNet {
-            // Check for overflow or restart
             if currentNet.sent >= prev.sent {
                 netSentRate = Float(currentNet.sent - prev.sent) / timeDelta
             }
@@ -40,25 +40,30 @@ class SystemCollector {
             }
         }
         prevNet = currentNet
-        
-        // Disk I/O — populated by getDiskRates() using IOBlockStorageDriver
+
+        // Disk I/O via IOBlockStorageDriver
         let diskRates = getDiskRates(timeDelta: timeDelta)
-        let diskRead  = diskRates.read
-        let diskWrite = diskRates.write
-        // TODO: Context switch rate requires Mach kernel calls restricted in sandbox. Always 0.
+
+        // Context switches: Mach kernel calls are sandbox-restricted. Always 0.
         let ctxSwitch: Float = 0.0
+
+        // Thread count: proc_listpids loop is sandbox-restricted. Fixed placeholder.
         let threads: Float = Float(getActiveThreadCount())
+
+        let processes: Float = Float(getProcessCount())
 
         return [
             cpu,            // 0: cpu_percent
             mem,            // 1: mem_percent
-            load,           // 2: load_avg_1min
-            netSentRate,    // 3: net_sent_per_sec
-            netRecvRate,    // 4: net_recv_per_sec
-            diskRead,       // 5: disk_read_per_sec
-            diskWrite,      // 6: disk_write_per_sec
-            ctxSwitch,      // 7: ctx_switches_per_sec
-            threads         // 8: thread_count
+            swap,           // 2: swap_percent
+            load,           // 3: load_avg_1min
+            netSentRate,    // 4: net_sent_per_sec
+            netRecvRate,    // 5: net_recv_per_sec
+            diskRates.read, // 6: disk_read_per_sec
+            diskRates.write,// 7: disk_write_per_sec
+            ctxSwitch,      // 8: ctx_switches_per_sec
+            threads,        // 9: thread_count
+            processes,      // 10: process_count
         ]
     }
     
@@ -178,10 +183,24 @@ class SystemCollector {
         )
     }
 
+    private func getSwapUsage() -> Float {
+        var xsw = xsw_usage()
+        var size = MemoryLayout<xsw_usage>.size
+        sysctlbyname("vm.swapusage", &xsw, &size, nil, 0)
+        guard xsw.xsu_total > 0 else { return 0.0 }
+        return Float(xsw.xsu_used) / Float(xsw.xsu_total) * 100.0
+    }
+
     private func getActiveThreadCount() -> Int {
-        // Global thread count requires a proc_listpids loop — expensive and
-        // restricted in sandboxed macOS apps. Returning a fixed placeholder
-        // to maintain the correct 9-feature input shape for the CoreML model.
+        // Global thread count requires a proc_listpids loop — sandbox-restricted.
+        // Returning a fixed placeholder to maintain the correct feature input shape.
         return 150
+    }
+
+    private func getProcessCount() -> Int {
+        var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_ALL, 0]
+        var size = 0
+        sysctl(&mib, 4, nil, &size, nil, 0)
+        return max(0, size / MemoryLayout<kinfo_proc>.size)
     }
 }

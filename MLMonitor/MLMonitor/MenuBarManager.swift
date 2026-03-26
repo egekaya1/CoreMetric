@@ -10,72 +10,50 @@ import AppKit
 
 class MenuBarManager: NSObject {
     private var statusItem: NSStatusItem!
-    private var popover: NSPopover!
-    
-    // We keep a reference to the Engine to pass it to the view
-    private let engine = InferenceEngine()
-    
-    override init() {
+
+    /// Shared engine — owned by AppDelegate, passed in on init.
+    let engine: InferenceEngine
+
+    init(engine: InferenceEngine) {
+        self.engine = engine
         super.init()
         setupMenuBar()
-        setupPopover()
     }
-    
+
     private func setupMenuBar() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        
+
         if let button = statusItem.button {
-            // Default Icon (SF Symbol)
-            button.image = NSImage(systemSymbolName: "waveform.path.ecg", accessibilityDescription: "Monitor")
-            button.action = #selector(togglePopover)
+            button.image = NSImage(systemSymbolName: "waveform.path.ecg",
+                                   accessibilityDescription: "CoreMetric")
+            button.action = #selector(showMainWindow)
             button.target = self
         }
-        
-        // Timer to update the icon color based on Anomaly Score
+
         Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
             self?.updateIconStatus()
         }
     }
-    
-    private func setupPopover() {
-        popover = NSPopover()
-        popover.behavior = .transient // Close when clicking outside
-        popover.animates = true
-        
-        // Inject our existing ContentView
-        // We force a specific size for the popover
-        popover.contentViewController = NSHostingController(rootView:
-            ContentView()
-                .frame(width: 400, height: 600)
-                .environmentObject(engine) // Pass engine if needed, or let View handle it
-        )
-    }
-    
-    @objc func togglePopover() {
-        if let button = statusItem.button {
-            if popover.isShown {
-                popover.performClose(nil)
-            } else {
-                popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-                // Force app to front so the popover is interactive
-                NSApp.activate(ignoringOtherApps: true)
-            }
+
+    /// Bring the main window to front, or un-hide it if it was closed.
+    @objc func showMainWindow() {
+        NSApp.activate(ignoringOtherApps: true)
+        if let window = NSApp.windows.first(where: { $0.canBecomeMain }) {
+            window.makeKeyAndOrderFront(nil)
         }
     }
-    
+
     func updateIconStatus() {
-        DispatchQueue.main.async {
-            if let button = self.statusItem.button {
-                let isAnomalous = self.engine.isAnomalous
-                let symbol = isAnomalous ? "exclamationmark.triangle.fill" : "waveform.path.ecg"
-                let color: NSColor = isAnomalous ? .red : .labelColor
-                let config = NSImage.SymbolConfiguration(paletteColors: [color])
-                button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)?
-                    .withSymbolConfiguration(config)
-                // Show live MSE score next to icon; hide when model not yet active
-                let score = self.engine.currentScore
-                button.title = score > 0.0001 ? " \(String(format: "%.3f", score))" : ""
-            }
+        DispatchQueue.main.async { [weak self] in
+            guard let self, let button = self.statusItem.button else { return }
+            let isAnomalous = self.engine.isAnomalous
+            let symbol = isAnomalous ? "exclamationmark.triangle.fill" : "waveform.path.ecg"
+            let color: NSColor = isAnomalous ? .red : .labelColor
+            let config = NSImage.SymbolConfiguration(paletteColors: [color])
+            button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)?
+                .withSymbolConfiguration(config)
+            let score = self.engine.currentScore
+            button.title = score > 0.0001 ? " \(String(format: "%.3f", score))" : ""
         }
     }
 }

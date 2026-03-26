@@ -44,13 +44,15 @@ struct ContentView: View {
 
     // UI State
     @StateObject private var eventStore = EventStore()
+    @StateObject private var orchestrator = SetupOrchestrator()
     @State private var history: [MetricPoint] = []
     @State private var isMonitoring = false
-    @State private var rawMetrics: [Float] = Array(repeating: 0.0, count: 9)
-    @State private var metricHistories: [[Float]] = Array(repeating: [], count: 9)
+    @State private var rawMetrics: [Float] = Array(repeating: 0.0, count: 11)
+    @State private var metricHistories: [[Float]] = Array(repeating: [], count: 11)
     @State private var lastDangerLogTime: Date = .distantPast
     @State private var selectedProcess: SuspectProcess? = nil
     @State private var showAllEvents = false
+    @State private var showSetup = false
     @AppStorage("alertCooldown")       private var alertCooldown: Double  = 5.0
     @AppStorage("autoStartMonitoring") private var autoStart: Bool        = true
 
@@ -67,6 +69,7 @@ struct ContentView: View {
                     score: brain.currentScore,
                     threshold: brain.alertThreshold,
                     isAnomalous: brain.isAnomalous,
+                    isModelLoaded: brain.isModelLoaded,
                     thermalState: power.thermalState
                 )
                 .padding()
@@ -149,14 +152,16 @@ struct ContentView: View {
 
                         // --- METRICS GRID ---
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 140))], spacing: 15) {
-                            MetricCard(title: "CPU Load",     value: String(format: "%.1f%%", rawMetrics[0]), icon: "cpu",              history: metricHistories[0])
-                            MetricCard(title: "Memory",       value: String(format: "%.1f%%", rawMetrics[1]), icon: "memorychip",        history: metricHistories[1])
-                            MetricCard(title: "System Load",  value: String(format: "%.2f",   rawMetrics[2]), icon: "gauge",             history: metricHistories[2])
-                            MetricCard(title: "Network Up",   value: formatBytes(rawMetrics[3]),              icon: "arrow.up.circle",   history: metricHistories[3])
-                            MetricCard(title: "Network Down", value: formatBytes(rawMetrics[4]),              icon: "arrow.down.circle", history: metricHistories[4])
-                            if rawMetrics.count > 8 {
-                                MetricCard(title: "Threads", value: String(format: "%.0f", rawMetrics[8]), icon: "text.alignleft", history: metricHistories[8])
-                            }
+                            MetricCard(title: "CPU Load",     value: String(format: "%.1f%%", rawMetrics[0]),  icon: "cpu",                  history: metricHistories[0])
+                            MetricCard(title: "Memory",       value: String(format: "%.1f%%", rawMetrics[1]),  icon: "memorychip",            history: metricHistories[1])
+                            MetricCard(title: "Swap",         value: String(format: "%.1f%%", rawMetrics[2]),  icon: "arrow.2.circlepath",    history: metricHistories[2])
+                            MetricCard(title: "System Load",  value: String(format: "%.2f",   rawMetrics[3]),  icon: "gauge",                 history: metricHistories[3])
+                            MetricCard(title: "Network Up",   value: formatBytes(rawMetrics[4]),               icon: "arrow.up.circle",       history: metricHistories[4])
+                            MetricCard(title: "Network Down", value: formatBytes(rawMetrics[5]),               icon: "arrow.down.circle",     history: metricHistories[5])
+                            MetricCard(title: "Disk Read",    value: formatBytes(rawMetrics[6]),               icon: "arrow.down.doc",        history: metricHistories[6])
+                            MetricCard(title: "Disk Write",   value: formatBytes(rawMetrics[7]),               icon: "arrow.up.doc",          history: metricHistories[7])
+                            MetricCard(title: "Threads",      value: String(format: "%.0f",   rawMetrics[9]),  icon: "text.alignleft",        history: metricHistories[9])
+                            MetricCard(title: "Processes",    value: String(format: "%.0f",   rawMetrics[10]), icon: "square.grid.2x2",       history: metricHistories[10])
                         }
                         .padding(.horizontal)
 
@@ -199,23 +204,43 @@ struct ContentView: View {
                     }
                 }
                 .overlay {
-                    if brain.modelStatus.hasPrefix("Error") || brain.modelStatus == "Initializing..." {
+                    if !brain.isModelLoaded {
                         VStack(spacing: 12) {
-                            Image(systemName: "exclamationmark.triangle")
+                            Image(systemName: "sparkles")
                                 .font(.largeTitle)
-                                .foregroundColor(.orange)
-                            Text("Model Unavailable")
+                                .foregroundColor(.accentColor)
+                            Text("No Model Yet")
                                 .font(.headline)
-                            Text(brain.modelStatus)
+                            Text("CoreMetric needs to learn what's normal on your Mac before it can detect anomalies.")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                                 .multilineTextAlignment(.center)
                                 .padding(.horizontal)
+                            Button("Set Up Now") { showSetup = true }
+                                .buttonStyle(.borderedProminent)
+                                .padding(.top, 4)
                         }
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background(Color(nsColor: .windowBackgroundColor).opacity(0.85))
+                        .background(Color(nsColor: .windowBackgroundColor).opacity(0.92))
                     }
                 }
+            }
+        }
+        .toolbar {
+            ToolbarItemGroup(placement: .primaryAction) {
+                if !brain.isModelLoaded {
+                    Button { showSetup = true } label: {
+                        Label("Set Up", systemImage: "sparkles")
+                    }
+                    .help("Run setup to train a model")
+                }
+                Button {
+                    isMonitoring.toggle()
+                } label: {
+                    Label(isMonitoring ? "Stop Monitoring" : "Start Monitoring",
+                          systemImage: isMonitoring ? "stop.circle" : "play.circle")
+                }
+                .help(isMonitoring ? "Pause monitoring" : "Resume monitoring")
             }
         }
         .onAppear {
@@ -234,12 +259,16 @@ struct ContentView: View {
         .sheet(isPresented: $showAllEvents) {
             EventHistoryView(store: eventStore)
         }
+        .sheet(isPresented: $showSetup) {
+            SetupView(orchestrator: orchestrator) {
+                brain.loadModel()
+            }
+        }
     }
 
     // --- LOGIC ---
 
     func startTimer(interval: TimeInterval) {
-        print("Timer interval updated: \(interval)s")
         timerCancellable?.cancel()
         timerCancellable = Timer.publish(every: interval, on: .main, in: .common)
             .autoconnect()
@@ -260,10 +289,10 @@ struct ContentView: View {
             if metricHistories[i].count > 30 { metricHistories[i].removeFirst() }
         }
 
-        // 3. Analyze
+        // 3. Analyze — synchronous, so brain.currentScore is up to date immediately after
         brain.analyze(data)
 
-        // 4. Update History (rolling 90-second window)
+        // 4. Update History (rolling 90-second window) — score is current now
         let now = Date()
         withAnimation {
             history.append(MetricPoint(time: now, score: brain.currentScore))
@@ -310,6 +339,7 @@ struct HeaderView: View {
     let score: Double
     let threshold: Double
     let isAnomalous: Bool
+    let isModelLoaded: Bool
     let thermalState: ProcessInfo.ThermalState
 
     private var thermalLabel: String {
@@ -330,7 +360,7 @@ struct HeaderView: View {
                 Text("CoreMetric")
                     .font(.title2)
                     .fontWeight(.bold)
-                Text("Neural Engine Monitoring Active")
+                Text(isModelLoaded ? "Neural Engine Active" : "No model loaded")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -410,9 +440,14 @@ struct SidebarView: View {
             Label("Dashboard", systemImage: "chart.xyaxis.line")
                 .font(.subheadline)
                 .foregroundColor(.primary)
-            Label("Settings", systemImage: "gear")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
+            Button {
+                NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+            } label: {
+                Label("Settings", systemImage: "gear")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+            .buttonStyle(.plain)
 
             Spacer()
 

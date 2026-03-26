@@ -18,7 +18,7 @@ class ProcessInspector {
     
     static func getTopProcesses() -> [SuspectProcess] {
         let task = Process()
-        task.launchPath = "/bin/ps"
+        task.executableURL = URL(fileURLWithPath: "/bin/ps")
         task.arguments = ["-Ac", "-o", "pid,%cpu,comm", "-r"]
         
         let pipe = Pipe()

@@ -30,8 +30,8 @@ class PowerManager: ObservableObject {
         
         // Poll power source changes (IOKit loop)
         // A simple timer is cleaner than setting up a C-style RunLoopSource for this scale
-        Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { _ in
-            self.updatePowerStatus()
+        Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
+            self?.updatePowerStatus()
         }
     }
     
