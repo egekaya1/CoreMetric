@@ -4,7 +4,7 @@
 ![Stack](https://img.shields.io/badge/Tech-SwiftUI_|_CoreML_|_PyTorch-orange)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
-**CoreMetric** is a privacy-first, neural-powered system monitor for macOS. Unlike traditional monitors that rely on hard-coded thresholds (e.g., "Alert if CPU > 90%"), CoreMetric uses a **Reconstruction Autoencoder** running on the Apple Neural Engine (ANE) to learn your specific usage patterns and detect subtle anomalies—like memory leaks, background crypto-miners, or frozen processes.
+**CoreMetric** is a privacy-first, neural-powered system monitor for macOS. Unlike traditional monitors that rely on hard-coded thresholds (e.g., "Alert if CPU > 90%"), CoreMetric uses a **Reconstruction Autoencoder** running on the Apple Neural Engine (ANE) to learn your specific usage patterns and detect subtle anomalies—like memory leaks, background crypto-miners, or frozen processes. Features include real-time monitoring via menu bar, configurable alerts and notifications, event logging, and customizable detection sensitivity.
 
 ---
 
@@ -47,7 +47,7 @@ graph LR
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 - macOS 13.0+ (Ventura or newer)
@@ -89,9 +89,15 @@ CoreMetric/
 ├── training/           # PyTorch pipeline & Core ML conversion
 ├── data/               # Raw training logs (ignored by git)
 └── MLMonitor/          # Native macOS Application
-    ├── SystemCollector.swift  # Darwin/C kernel interface
-    ├── InferenceEngine.swift  # Core ML Wrapper & Metadata parser
-    └── ContentView.swift      # SwiftUI Dashboard & Charts
+    ├── SystemCollector.swift      # Darwin/C kernel interface
+    ├── InferenceEngine.swift      # Core ML Wrapper & Metadata parser
+    ├── ContentView.swift          # SwiftUI Dashboard & Charts
+    ├── MenuBarManager.swift       # Status bar & window management
+    ├── NotificationManager.swift  # User alerts & notifications
+    ├── EventStore.swift           # Event logging system
+    ├── SettingsView.swift         # User preferences UI
+    ├── PowerManager.swift         # Battery & thermal state tracking
+    └── ProcessInspector.swift     # Top process detection
 ```
 
 ## 🛡 Privacy

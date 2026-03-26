@@ -16,7 +16,7 @@ INTERVAL = 1.0  # Sampling rate in seconds
 # Ensure directory exists
 os.makedirs(DATA_DIR, exist_ok=True)
 
-print(f"--- 🛡️ SILICON SENTINEL COLLECTOR ---")
+print(f"---  CORE METRIC COLLECTOR ---")
 print(f"Saving to: {OUTPUT_FILE}")
 print("Leave this running in the background for 24-48 hours.")
 print("Press CTRL+C to stop and save safely.\n")
@@ -99,7 +99,7 @@ monitor = SystemMonitor()
 
 # Handle Ctrl+C gracefully
 def signal_handler(sig, frame):
-    print("\n🛑 Collection stopped. Data saved.")
+    print("\n Collection stopped. Data saved.")
     sys.exit(0)
 
 signal.signal(signal.SIGINT, signal_handler)
@@ -127,4 +127,4 @@ try:
             time.sleep(sleep_time)
 
 except Exception as e:
-    print(f"\n❌ Critical Error: {e}")
+    print(f"\n Critical Error: {e}")

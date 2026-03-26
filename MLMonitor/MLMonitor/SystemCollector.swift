@@ -12,6 +12,7 @@ import IOKit
 class SystemCollector {
     private var prevCpuInfo: host_cpu_load_info? = nil
     private var prevNet: (sent: UInt64, recv: UInt64)? = nil
+    private var prevDisk: (read: UInt64, write: UInt64)? = nil
     private var prevTime: TimeInterval = 0
     
     // Feature 0-8 matches your Python definitions EXACTLY
@@ -40,12 +41,11 @@ class SystemCollector {
         }
         prevNet = currentNet
         
-        // Placeholders for IOKit (Disk) & Thread/Ctx (Heavy C-Calls)
-        // For V1, we stick to the most impactful ones and zero-pad the rest
-        // to ensure high-performance UI rendering (60fps).
-        // Real implementation of IOKit Disk I/O requires ~200 lines of C++.
-        let diskRead: Float = 0.0
-        let diskWrite: Float = 0.0
+        // Disk I/O — populated by getDiskRates() using IOBlockStorageDriver
+        let diskRates = getDiskRates(timeDelta: timeDelta)
+        let diskRead  = diskRates.read
+        let diskWrite = diskRates.write
+        // TODO: Context switch rate requires Mach kernel calls restricted in sandbox. Always 0.
         let ctxSwitch: Float = 0.0
         let threads: Float = Float(getActiveThreadCount())
 
@@ -139,15 +139,49 @@ class SystemCollector {
         return (sent, recv)
     }
     
+    private func getDiskCounters() -> (read: UInt64, write: UInt64) {
+        var totalRead: UInt64 = 0
+        var totalWrite: UInt64 = 0
+
+        let matchDict = IOServiceMatching("IOBlockStorageDriver")
+        var iter: io_iterator_t = 0
+        guard IOServiceGetMatchingServices(kIOMainPortDefault, matchDict, &iter) == KERN_SUCCESS else {
+            return (0, 0)
+        }
+        defer { IOObjectRelease(iter) }
+
+        var service = IOIteratorNext(iter)
+        while service != 0 {
+            defer { IOObjectRelease(service); service = IOIteratorNext(iter) }
+            var props: Unmanaged<CFMutableDictionary>?
+            if IORegistryEntryCreateCFProperties(service, &props, kCFAllocatorDefault, 0) == KERN_SUCCESS,
+               let dict = props?.takeRetainedValue() as? [String: Any],
+               let stats = dict["Statistics"] as? [String: Any] {
+                totalRead  += stats["Bytes (Read)"]    as? UInt64 ?? 0
+                totalWrite += stats["Bytes (Written)"] as? UInt64 ?? 0
+            }
+        }
+        return (totalRead, totalWrite)
+    }
+
+    private func getDiskRates(timeDelta: Float) -> (read: Float, write: Float) {
+        let current = getDiskCounters()
+        defer { prevDisk = current }
+        guard let prev = prevDisk,
+              current.read >= prev.read,
+              current.write >= prev.write else {
+            return (0.0, 0.0)
+        }
+        return (
+            Float(current.read  - prev.read)  / timeDelta,
+            Float(current.write - prev.write) / timeDelta
+        )
+    }
+
     private func getActiveThreadCount() -> Int {
-        // Rough approximation using basic task info
-        // A full implementation requires iterating all PIDs (expensive)
-        // For V1 we return a static count of the monitoring app itself + system estimate
-        // Real implementation requires `proc_listpids` loop.
-        _ = mach_msg_type_number_t(MemoryLayout<processor_set_load_info_data_t>.size / MemoryLayout<integer_t>.size)
-        _ = processor_set_load_info_data_t()
-        // Getting global thread count is restricted on recent macOS sandboxes
-        // Returning a placeholder to keep input shape correct for ML
+        // Global thread count requires a proc_listpids loop — expensive and
+        // restricted in sandboxed macOS apps. Returning a fixed placeholder
+        // to maintain the correct 9-feature input shape for the CoreML model.
         return 150
     }
 }

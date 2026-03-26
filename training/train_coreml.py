@@ -29,17 +29,17 @@ FEATURES = [
 # --- 1. DEVICE SETUP ---
 if torch.backends.mps.is_available():
     device = torch.device("mps")
-    print("🚀 Using Apple Metal (MPS) acceleration.")
+    print("Using Apple Metal (MPS) acceleration.")
 else:
     device = torch.device("cpu")
-    print("⚠️ Using CPU (Metal not detected).")
+    print("Using CPU (Metal not detected).")
 
 # --- 2. DATA INGESTION ---
-print(f"\n📂 Scanning {RAW_DATA_DIR}...")
+print(f"\n Scanning {RAW_DATA_DIR}...")
 files = glob.glob(os.path.join(RAW_DATA_DIR, "*.jsonl"))
 
 if not files:
-    print("❌ No data found! Run the collector first.")
+    print("No data found! Run the collector first.")
     exit()
 
 print(f"   Found {len(files)} session files. Merging...")
@@ -52,20 +52,20 @@ for f in files:
         if not session_df.empty:
             df_list.append(session_df)
     except ValueError as e:
-        print(f"   ⚠️ Skipping corrupt file: {f}")
+        print(f"   Skipping corrupt file: {f}")
 
 if not df_list:
-    print("❌ All data files were empty or corrupt.")
+    print("All data files were empty or corrupt.")
     exit()
 
 df = pd.concat(df_list, ignore_index=True)
 
 # Filter only selected features and handle NaNs
 df = df[FEATURES].fillna(0)
-print(f"   ✅ Loaded {len(df)} data points.")
+print(f"  Loaded {len(df)} data points.")
 
 # --- 3. PREPROCESSING ---
-print("⚖️  Scaling data (Z-Score Normalization)...")
+print("  Scaling data (Z-Score Normalization)...")
 scaler = StandardScaler()
 data_matrix = df.values.astype(np.float32)
 
@@ -103,7 +103,7 @@ criterion = nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
 # --- 5. TRAINING LOOP ---
-print(f"\n🏋️  Training on {len(df)} samples...")
+print(f"\n  Training on {len(df)} samples...")
 EPOCHS = 150
 BATCH_SIZE = 64
 model.train()
@@ -131,7 +131,7 @@ for epoch in range(EPOCHS):
         print(f"   Epoch {epoch}: Loss {avg_loss:.6f}")
 
 # --- 6. ANALYSIS & THRESHOLDING ---
-print("\n📊 Analyzing Reconstruction Error...")
+print("\n Analyzing Reconstruction Error...")
 model.eval()
 with torch.no_grad():
     # Run entire dataset through model
@@ -151,10 +151,10 @@ suggested_threshold = p99_error * 1.5  # Safety margin
 print(f"   Mean Error (Normal):  {mean_error:.4f}")
 print(f"   Max Error (Outlier):  {max_error:.4f}")
 print(f"   99.9th Percentile:    {p99_error:.4f}")
-print(f"   🎯 SUGGESTED ALERT THRESHOLD: {suggested_threshold:.4f}")
+print(f"    SUGGESTED ALERT THRESHOLD: {suggested_threshold:.4f}")
 
 # --- 7. EXPORT TO CORE ML ---
-print("\n📦 Exporting to Core ML...")
+print("\n Exporting to Core ML...")
 
 # Core ML needs CPU model
 model.cpu()
@@ -169,9 +169,9 @@ mlmodel = ct.convert(
 
 # --- 8. METADATA INJECTION (THE PRO MOVE) ---
 # We save the Scaler params inside the model so Swift can read them.
-print("💉 Injecting Scaling Metadata...")
+print(" Injecting Scaling Metadata...")
 if scaler.mean_ is None or scaler.scale_ is None:
-    print("❌ Error: Scaler was not fitted. Cannot export metadata.")
+    print(" Error: Scaler was not fitted. Cannot export metadata.")
     exit()
 
 # Convert numpy arrays to comma-separated strings
@@ -191,5 +191,5 @@ mlmodel.version = "1.0 Production"
 os.makedirs(os.path.dirname(EXPORT_PATH), exist_ok=True)
 mlmodel.save(EXPORT_PATH)
 
-print(f"✅ DONE. Model saved to: {EXPORT_PATH}")
+print(f" DONE. Model saved to: {EXPORT_PATH}")
 print(f"   (Includes metadata for automatic scaling in Swift)")

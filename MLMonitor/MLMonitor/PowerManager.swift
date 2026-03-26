@@ -1,6 +1,6 @@
 //
 //  PowerManager.swift
-//  MLMonitor
+//  CoreMetric
 //
 //  Created by Ege Kaya on 27.11.2025.
 //
@@ -61,7 +61,7 @@ class PowerManager: ObservableObject {
         DispatchQueue.main.async {
             if self.isOnBattery != onBattery {
                 self.isOnBattery = onBattery
-                print("⚡️ Power Source Changed: \(onBattery ? "Battery 🔋" : "AC Power 🔌")")
+                print("Power Source Changed: \(onBattery ? "Battery" : "AC Power")")
             }
         }
     }

@@ -1,6 +1,6 @@
 //
 //  InferenceEngine.swift
-//  MLMonitor
+//  CoreMetric
 //
 //  Created by Ege Kaya on 27.11.2025.
 //
@@ -15,6 +15,9 @@ class InferenceEngine: ObservableObject {
     @Published var isAnomalous: Bool = false
     @Published var modelStatus: String = "Initializing..."
     @Published var topSuspects: [SuspectProcess] = []
+
+    // Base threshold loaded from model metadata; effective threshold scales with user sensitivity
+    private var baseThreshold: Double = 0.5
     
     // We hold the generic base class here
     private var model: MLModel?
@@ -26,22 +29,12 @@ class InferenceEngine: ObservableObject {
     }
     
     func loadModel() {
-        let config = MLModelConfiguration()
-        
-        do {
-            // FIX: Using 'SiliconSentinel' to match your likely filename.
-            // If this line is red, RENAME your .mlpackage file in Xcode to 'SiliconSentinel'
-            let wrapper = try SystemMonitor(configuration: config)
-            
-            self.model = wrapper.model
-            self.modelStatus = "SiliconSentinel Active"
-            
-            extractMetadata()
-            
-        } catch {
-            self.modelStatus = "Error: \(error.localizedDescription)"
-            print("Model Load Failed: \(error)")
-        }
+        // Start without a model; run app in monitoring-disabled mode.
+        self.model = nil
+        self.modelStatus = "Model unavailable - monitoring disabled"
+        // Ensure thresholds reflect disabled state sensibly
+        let multiplier = UserDefaults.standard.double(forKey: "thresholdMultiplier")
+        self.alertThreshold = self.baseThreshold * (multiplier > 0 ? multiplier : 1.0)
     }
     
     private func extractMetadata() {
@@ -55,23 +48,32 @@ class InferenceEngine: ObservableObject {
                let stdStr = userDict["feature_stds"] {
                 self.featureMeans = meanStr.split(separator: ",").compactMap { Float($0) }
                 self.featureStds = stdStr.split(separator: ",").compactMap { Float($0) }
-                print("✅ Metadata Loaded")
+                print("Metadata Loaded")
             }
             
             if let threshStr = userDict["suggested_threshold"],
                let threshVal = Double(threshStr) {
-                self.alertThreshold = threshVal
-                print("✅ Threshold Set to: \(self.alertThreshold)")
+                self.baseThreshold = threshVal
+                let multiplier = UserDefaults.standard.double(forKey: "thresholdMultiplier")
+                self.alertThreshold = threshVal * (multiplier > 0 ? multiplier : 1.0)
+                print("Threshold Set to: \(self.alertThreshold)")
             }
         }
     }
     
     func analyze(_ raw: [Float]) {
-        guard let model = model, !featureMeans.isEmpty else { return }
+        guard let model = model, !featureMeans.isEmpty else {
+            // No model available - keep score at 0 and no anomaly
+            DispatchQueue.main.async {
+                self.currentScore = 0.0
+                self.isAnomalous = false
+                self.topSuspects = []
+            }
+            return
+        }
         
         let inputSize = featureMeans.count
         
-        // FIX: The 'do' block must wrap ALL throwing calls (try)
         do {
             let inputArray = try MLMultiArray(shape: [1, NSNumber(value: inputSize)], dataType: .float32)
             
@@ -101,6 +103,9 @@ class InferenceEngine: ObservableObject {
             
             DispatchQueue.main.async {
                 self.currentScore = Double(mse)
+                // Re-read multiplier on every tick so settings changes take effect immediately
+                let multiplier = UserDefaults.standard.double(forKey: "thresholdMultiplier")
+                self.alertThreshold = self.baseThreshold * (multiplier > 0 ? multiplier : 1.0)
                 self.isAnomalous = self.currentScore > self.alertThreshold
                 
                 // TRIGGER THE DETECTIVE
@@ -122,3 +127,4 @@ class InferenceEngine: ObservableObject {
         }
     }
 }
+

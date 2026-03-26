@@ -1,6 +1,6 @@
 //
 //  MenuBarManager.swift
-//  MLMonitor
+//  CoreMetric
 //
 //  Created by Ege Kaya on 27.11.2025.
 //
@@ -64,12 +64,17 @@ class MenuBarManager: NSObject {
     }
     
     func updateIconStatus() {
-        // Change icon based on anomaly state
         DispatchQueue.main.async {
             if let button = self.statusItem.button {
-                let symbol = self.engine.isAnomalous ? "exclamationmark.triangle.fill" : "waveform.path.ecg"
-                let config = NSImage.SymbolConfiguration(paletteColors: [self.engine.isAnomalous ? .red : .labelColor])
-                button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)?.withSymbolConfiguration(config)
+                let isAnomalous = self.engine.isAnomalous
+                let symbol = isAnomalous ? "exclamationmark.triangle.fill" : "waveform.path.ecg"
+                let color: NSColor = isAnomalous ? .red : .labelColor
+                let config = NSImage.SymbolConfiguration(paletteColors: [color])
+                button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)?
+                    .withSymbolConfiguration(config)
+                // Show live MSE score next to icon; hide when model not yet active
+                let score = self.engine.currentScore
+                button.title = score > 0.0001 ? " \(String(format: "%.3f", score))" : ""
             }
         }
     }
